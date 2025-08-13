@@ -28,6 +28,9 @@ USER appuser
 RUN mkdir -p /home/appuser/.cache
 RUN chown -R appuser /home/appuser/.cache
 
+# ADD THIS LINE: Update PATH to include local bin
+ENV PATH="/home/appuser/.local/bin:${PATH}"
+
 WORKDIR /home/appuser
 
 COPY requirements.txt .
