@@ -5,3 +5,5 @@ livekit-agents
 livekit-plugins-openai
 livekit-plugins-silero
 livekit-plugins-turn-detector
+uvicorn
+fastapi
