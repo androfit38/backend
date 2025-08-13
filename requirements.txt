@@ -7,3 +7,11 @@ livekit-plugins-silero
 livekit-plugins-turn-detector
 uvicorn
 fastapi
+livekit-agents
+livekit-plugins-openai
+livekit-plugins-silero
+livekit-plugins-noise-cancellation
+python-dotenv
+gunicorn
+uvicorn[standard]
+
