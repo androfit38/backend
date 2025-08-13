@@ -1,10 +1,11 @@
 # main.py
 
 import os
-import asyncio
+import threading
 from dotenv import load_dotenv
 from fastapi import FastAPI
 import uvicorn
+import asyncio
 
 from livekit import agents
 from livekit.agents import AgentSession, Agent, RoomInputOptions
@@ -25,11 +26,9 @@ health_app = FastAPI()
 async def healthz():
     return {"status": "ok"}
 
-def start_health_server():
+def run_health_server():
     port = int(os.environ.get("PORT", "8081"))
-    config = uvicorn.Config(health_app, host="0.0.0.0", port=port, log_level="warning")
-    server = uvicorn.Server(config)
-    return server.serve()
+    uvicorn.run(health_app, host="0.0.0.0", port=port, log_level="warning")
 
 class FitnessAssistant(Agent):
     """
@@ -47,7 +46,6 @@ class FitnessAssistant(Agent):
         )
 
 async def entrypoint(ctx: agents.JobContext):
-    # Start LiveKit agent session
     session = AgentSession(
         stt=openai.STT(model="whisper-1"),
         llm=openai.LLM(model="gpt-4o-mini"),
@@ -63,11 +61,11 @@ async def entrypoint(ctx: agents.JobContext):
     await session.generate_reply(instructions="Greet the user and offer assistance.")
 
 if __name__ == "__main__":
+    # Start health endpoint in background thread
+    threading.Thread(target=run_health_server, daemon=True).start()
+
+    # Start LiveKit agent worker (blocking)
     try:
-        loop = asyncio.get_event_loop()
-        # Launch health endpoint
-        loop.create_task(start_health_server())
-        # Launch LiveKit agent worker
         agents.cli.run_app(agents.WorkerOptions(entrypoint_fnc=entrypoint))
     except Exception as e:
         print(f"Error starting agent: {e}")
