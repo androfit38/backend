@@ -1,3 +1,6 @@
+import nest_asyncio
+nest_asyncio.apply()  # Allow nested event loops
+
 from dotenv import load_dotenv
 from livekit import agents
 from livekit.agents import AgentSession, Agent, RoomInputOptions
@@ -6,8 +9,10 @@ from livekit.plugins import (
     noise_cancellation,
     silero,
 )
+import os
+import asyncio
 
-# Load environment variables from .env file
+# Load environment variables
 load_dotenv()
 
 # Try to import turn detector with fallback
@@ -19,9 +24,8 @@ except ImportError:
     TURN_DETECTOR_AVAILABLE = False
 
 class FitnessAssistant(Agent):
-    """
-    AndrofitAI: An energetic, voice-interactive, and supportive AI personal gym coach.
-    """
+    """AndrofitAI: An energetic, voice-interactive AI personal gym coach."""
+    
     def __init__(self) -> None:
         super().__init__(
             instructions=(
@@ -41,21 +45,17 @@ class FitnessAssistant(Agent):
 
 async def entrypoint(ctx: agents.JobContext):
     try:
-        # Configure turn detection based on availability
+        # Configure turn detection
         if TURN_DETECTOR_AVAILABLE:
             turn_detection = MultilingualModel()
             print("Using multilingual turn detection model")
         else:
-            turn_detection = "vad"  # Fallback to VAD-only
+            turn_detection = "vad"
             print("Using VAD-only turn detection")
 
         session = AgentSession(
-            stt=openai.STT(
-                model="whisper-1",
-            ),
-            llm=openai.LLM(
-                model="gpt-4o-mini"
-            ),
+            stt=openai.STT(model="whisper-1"),
+            llm=openai.LLM(model="gpt-4o-mini"),
             tts=openai.TTS(
                 model="tts-1",
                 voice="alloy",
@@ -65,7 +65,6 @@ async def entrypoint(ctx: agents.JobContext):
             turn_detection=turn_detection,
         )
         
-        # Start the session with the FitnessAssistant agent
         await session.start(
             room=ctx.room,
             agent=FitnessAssistant(),
@@ -74,7 +73,6 @@ async def entrypoint(ctx: agents.JobContext):
             ),
         )
         
-        # Greet the user and offer assistance
         await session.generate_reply(
             instructions="Greet the user and offer your assistance."
         )
@@ -85,7 +83,7 @@ async def entrypoint(ctx: agents.JobContext):
 
 if __name__ == "__main__":
     try:
-        # Run the agent app from the command line
+        print("Starting LiveKit AI Fitness Assistant...")
         agents.cli.run_app(
             agents.WorkerOptions(
                 entrypoint_fnc=entrypoint,
