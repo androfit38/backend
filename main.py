@@ -6,20 +6,24 @@ from livekit.plugins import (
     noise_cancellation,
     silero,
 )
-from livekit.plugins.turn_detector.multilingual import MultilingualModel
-import os
-import asyncio
-import signal
 
 # Load environment variables from .env file
 load_dotenv()
+
+# Try to import turn detector with fallback
+try:
+    from livekit.plugins.turn_detector.multilingual import MultilingualModel
+    TURN_DETECTOR_AVAILABLE = True
+except ImportError:
+    print("Turn detector not available - using VAD only")
+    TURN_DETECTOR_AVAILABLE = False
 
 class FitnessAssistant(Agent):
     """
     AndrofitAI: An energetic, voice-interactive, and supportive AI personal gym coach.
     """
-    def __init__(self) -> None:  # Fixed: __init__ instead of init
-        super().__init__(  # Fixed: __init__ instead of init
+    def __init__(self) -> None:
+        super().__init__(
             instructions=(
                 "You are AndrofitAI, an energetic, voice-interactive, and supportive AI personal gym coach. "
                 "Start every workout session with a warm, personal greeting like 'How's your vibe today? Ready to crush it?' "
@@ -37,12 +41,20 @@ class FitnessAssistant(Agent):
 
 async def entrypoint(ctx: agents.JobContext):
     try:
+        # Configure turn detection based on availability
+        if TURN_DETECTOR_AVAILABLE:
+            turn_detection = MultilingualModel()
+            print("Using multilingual turn detection model")
+        else:
+            turn_detection = "vad"  # Fallback to VAD-only
+            print("Using VAD-only turn detection")
+
         session = AgentSession(
             stt=openai.STT(
                 model="whisper-1",
             ),
             llm=openai.LLM(
-                model="gpt-4o-mini"  # Fixed: corrected model name
+                model="gpt-4o-mini"
             ),
             tts=openai.TTS(
                 model="tts-1",
@@ -50,7 +62,7 @@ async def entrypoint(ctx: agents.JobContext):
                 instructions="Speak in a friendly and conversational tone."
             ),
             vad=silero.VAD.load(),
-            turn_detection=MultilingualModel(),
+            turn_detection=turn_detection,
         )
         
         # Start the session with the FitnessAssistant agent
@@ -71,35 +83,15 @@ async def entrypoint(ctx: agents.JobContext):
         print(f"Error in entrypoint: {str(e)}")
         raise
 
-async def main():
-    """Main function to run the agent with proper error handling"""
+if __name__ == "__main__":
     try:
-        # Set up signal handlers for graceful shutdown
-        loop = asyncio.get_event_loop()
-        for sig in [signal.SIGTERM, signal.SIGINT]:
-            loop.add_signal_handler(sig, lambda: asyncio.create_task(shutdown()))
-        
-        # Run the agent app
-        await agents.cli.run_app(
+        # Run the agent app from the command line
+        agents.cli.run_app(
             agents.WorkerOptions(
                 entrypoint_fnc=entrypoint,
             )
         )
     except Exception as e:
         print(f"Error starting agent: {str(e)}")
-        raise
-
-async def shutdown():
-    """Graceful shutdown handler"""
-    print("Shutting down gracefully...")
-    # Add cleanup code here if needed
-    
-if __name__ == "__main__":  # Fixed: __name__ instead of name
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        print("Application interrupted")
-    except Exception as e:
-        print(f"Fatal error: {str(e)}")
         import sys
         sys.exit(1)
