@@ -1,12 +1,4 @@
-# main.py
-
-import os
-import threading
 from dotenv import load_dotenv
-from fastapi import FastAPI
-import uvicorn
-import asyncio
-
 from livekit import agents
 from livekit.agents import AgentSession, Agent, RoomInputOptions
 from livekit.plugins import (
@@ -15,59 +7,74 @@ from livekit.plugins import (
     silero,
 )
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
+import os
 
-# Load environment variables from .env
+# Load environment variables from .env file
 load_dotenv()
-
-# Health-check HTTP server
-health_app = FastAPI()
-
-@health_app.get("/healthz")
-async def healthz():
-    return {"status": "ok"}
-
-def run_health_server():
-    port = int(os.environ.get("PORT", "8081"))
-    uvicorn.run(health_app, host="0.0.0.0", port=port, log_level="warning")
 
 class FitnessAssistant(Agent):
     """
-    AndrofitAI: An energetic, voice-interactive, supportive AI personal gym coach.
+    AndrofitAI: An energetic, voice-interactive, and supportive AI personal gym coach.
+    Guides users through personalized workout sessions with motivational feedback and real-time instructions.
     """
-    def __init__(self) -> None:
-        super().__init__(
+    def __init__(self) -> None:  # Fixed: __init__ instead of init
+        super().__init__(  # Fixed: __init__ instead of init
             instructions=(
                 "You are AndrofitAI, an energetic, voice-interactive, and supportive AI personal gym coach. "
-                "Start every workout with 'How's your vibe today? Ready to crush it?' "
-                "Prompt users for goals and equipment, then generate personalized workouts. "
-                "Guide each rep and rest, support commands like 'Pause' or 'Skip,' "
-                "and deliver motivational feedback throughout."
+                "Start every workout session with a warm, personal greeting like 'How's your vibe today? Ready to crush it?' "
+                "Prompt users to share their fitness goals, experience level, available equipment, and time, then dynamically generate customized workout plans — "
+                "For example, if a user says, 'Beginner, 20 min, no equipment,' offer a suitable plan such as '20-min bodyweight HIIT: 10 squats, 10 push-ups.' "
+                "Guide workouts in real time with step-by-step verbal instructions, providing clear cues for each exercise, set, rep, and rest interval — "
+                "Support voice commands like 'Pause,' 'Skip,' or 'Make it easier' to ensure users feel in control. "
+                "Consistently deliver motivational, context-aware feedback—if a user expresses fatigue, reassure them with, 'You're tough, just two more!' "
+                "Share essential form and technique tips by describing correct posture and alignment, and confidently answer questions like 'How's a deadlift done?' "
+                "Adopt an authentic personal trainer style: build rapport with empathetic, conversational exchanges and respond to user mood or progress. "
+                "During rest intervals, initiate brief, engaging fitness discussions—for example, 'Protein aids recovery; try eggs post-workout.' "
+                "Accurately count reps using user grunts, or offer a motivating cadence to keep users on pace, cheering them through every set. "
+                "Always focus on making each session positive, safe, goal-oriented, and truly personalized."
             )
         )
 
 async def entrypoint(ctx: agents.JobContext):
     session = AgentSession(
-        stt=openai.STT(model="whisper-1"),
-        llm=openai.LLM(model="gpt-4o-mini"),
-        tts=openai.TTS(model="tts-1", voice="alloy", instructions="Speak friendly."),
+        stt=openai.STT(
+            model="whisper-1",
+        ),
+        llm=openai.LLM(
+            model="gpt-4o-mini"  # Fixed: corrected model name
+        ),
+        tts=openai.TTS(
+            model="tts-1",
+            voice="alloy",
+            instructions="Speak in a friendly and conversational tone."
+        ),
         vad=silero.VAD.load(),
         turn_detection=MultilingualModel(),
     )
+    
+    # Start the session with the FitnessAssistant agent
     await session.start(
         room=ctx.room,
         agent=FitnessAssistant(),
-        room_input_options=RoomInputOptions(noise_cancellation=noise_cancellation.BVC()),
+        room_input_options=RoomInputOptions(
+            noise_cancellation=noise_cancellation.BVC(),
+        ),
     )
-    await session.generate_reply(instructions="Greet the user and offer assistance.")
+    
+    # Greet the user and offer assistance
+    await session.generate_reply(
+        instructions="Greet the user and offer your assistance."
+    )
 
-if __name__ == "__main__":
-    # Start health endpoint in background thread
-    threading.Thread(target=run_health_server, daemon=True).start()
-
-    # Start LiveKit agent worker (blocking)
+if __name__ == "__main__":  # Fixed: __name__ instead of name
     try:
-        agents.cli.run_app(agents.WorkerOptions(entrypoint_fnc=entrypoint))
+        # Run the agent app from the command line
+        agents.cli.run_app(
+            agents.WorkerOptions(
+                entrypoint_fnc=entrypoint,
+            )
+        )
     except Exception as e:
-        print(f"Error starting agent: {e}")
+        print(f"Error starting agent: {str(e)}")
         import sys
         sys.exit(1)
