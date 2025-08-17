@@ -42,7 +42,7 @@ class OptimizedFitnessAssistant(Agent):
             "You are AndrofitAI, an AI gym coach. Greet users warmly and ask about their fitness goals. "
             "Create personalized workout plans based on their equipment, time, and experience. "
             "Give clear exercise instructions and motivational feedback. Support voice commands like 'pause' or 'skip'. "
-            "Keep responses concise and energetic. Focus on safety and proper form."
+            "Keep responses concise and energetic (under 100 words). Focus on safety and proper form."
         )
         
         super().__init__(instructions=instructions)
@@ -61,6 +61,7 @@ async def create_optimized_session(ctx: agents.JobContext):
             llm=openai.LLM(
                 model=MemoryOptimizedConfig.LLM_MODEL,
                 temperature=0.7,
+                # Removed max_tokens - handle this in agent instructions instead
             ),
             tts=openai.TTS(
                 model=MemoryOptimizedConfig.TTS_MODEL,
@@ -68,8 +69,8 @@ async def create_optimized_session(ctx: agents.JobContext):
             ),
             vad=silero.VAD.load(
                 # Use minimal VAD settings
-                min_silence_duration=0.5,  # 500ms in seconds
-                min_speech_duration=0.25,  # 250ms in seconds
+                min_silence_duration=0.5,  # 500ms
+                min_speech_duration=0.25,  # 250ms
             ),
             # Use simple turn detection based on VAD only
             # turn_detection=MultilingualModel(),  # Removed - requires model download
@@ -99,21 +100,18 @@ async def entrypoint(ctx: agents.JobContext):
             await session.start(
                 room=ctx.room,
                 agent=agent,
-                room_input_options=RoomInputOptions(
-                    # Disable noise cancellation to save memory
-                    # noise_cancellation=None,
-                ),
+                # Removed RoomInputOptions as it might not be needed or have different parameters
             )
             
-            # Send initial greeting
-            await session.generate_reply(
-                instructions="Briefly greet the user and ask about their fitness goals today.",
-                max_tokens=100  # Limit initial response
+            # Send initial greeting - removed max_tokens parameter
+            await session.say(
+                "Hello! I'm AndrofitAI, your personal AI fitness coach. What are your fitness goals today?",
+                allow_interruptions=True
             )
             
-            # Keep session alive
+            # Keep session alive and handle the conversation
             while ctx.room.connection_state == "connected":
-                await asyncio.sleep(10)  # Check every 10 seconds
+                await asyncio.sleep(1)  # Check more frequently for responsiveness
                 
     except Exception as e:
         print(f"Session error: {e}")
