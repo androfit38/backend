@@ -60,8 +60,6 @@ async def create_optimized_session(ctx: agents.JobContext):
             ),
             llm=openai.LLM(
                 model=MemoryOptimizedConfig.LLM_MODEL,
-                # Limit token usage
-                max_tokens=MemoryOptimizedConfig.MAX_RESPONSE_LENGTH,
                 temperature=0.7,
             ),
             tts=openai.TTS(
