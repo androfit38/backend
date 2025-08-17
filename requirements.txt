@@ -1,19 +1,20 @@
-# Optimized requirements for 512MB RAM server
-# Core LiveKit agents framework
+# Core LiveKit and OpenAI dependencies (minimal versions for memory efficiency)
 livekit-agents
-
-# Essential plugins only (removed heavy ones)
 livekit-plugins-openai
 livekit-plugins-silero
 
-# Core dependencies (automatically installed but listed for clarity)
-livekit
+# Essential dependencies
 python-dotenv
+openai
+aiohttp
+websockets
 
-# Optional: Add these only if you have more RAM available
-# livekit-plugins-noise-suppression  # Adds ~50MB RAM usage
-# livekit-plugins-turn-detector      # Adds ~30MB RAM usage
+# Memory optimization
+psutil
 
-# Memory optimization libraries (optional but recommended)
-psutil  # For monitoring memory usage
-gc-optimize  # Better garbage collection
+# Optional: Remove if not using noise cancellation (saves ~50MB RAM)
+# livekit-plugins-krisp
+
+# For development only (remove in production)
+# pytest
+# pytest-asyncio
