@@ -5,3 +5,22 @@ livekit-plugins-noise-cancellation>=0.2.0
 livekit-plugins-turn-detector>=1.2.0
 python-dotenv
 nest-asyncio
+# Optimized requirements for 512MB RAM server
+# Core LiveKit agents framework
+livekit-agents==0.8.5
+
+# Essential plugins only (removed heavy ones)
+livekit-plugins-openai==0.7.1
+livekit-plugins-silero==0.6.0
+
+# Core dependencies (automatically installed but listed for clarity)
+livekit==0.11.0
+python-dotenv==1.0.0
+
+# Optional: Add these only if you have more RAM available
+# livekit-plugins-noise-suppression==0.6.0  # Adds ~50MB RAM usage
+# livekit-plugins-turn-detector==0.6.0      # Adds ~30MB RAM usage
+
+# Memory optimization libraries (optional but recommended)
+psutil==5.9.6  # For monitoring memory usage
+gc-optimize==0.1.0  # Better garbage collection
