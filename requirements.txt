@@ -18,3 +18,5 @@ psutil
 # For development only (remove in production)
 # pytest
 # pytest-asyncio
+
+livekit-plugins-turn-detector
