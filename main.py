@@ -7,7 +7,6 @@ from dotenv import load_dotenv
 from livekit import agents
 from livekit.agents import AgentSession, Agent, RoomInputOptions
 from livekit.plugins import openai, silero
-from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
 # Load environment variables
 load_dotenv()
@@ -74,7 +73,8 @@ async def create_optimized_session(ctx: agents.JobContext):
                 min_silence_duration_ms=500,
                 min_speech_duration_ms=250,
             ),
-            turn_detection=MultilingualModel(),
+            # Use simple turn detection based on VAD only
+            # turn_detection=MultilingualModel(),  # Removed - requires model download
         )
         
         yield session
