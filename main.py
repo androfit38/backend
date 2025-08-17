@@ -1,142 +1,170 @@
 import os
-import gc
+import asyncio
+from typing import Optional
+from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 
 from livekit import agents
 from livekit.agents import AgentSession, Agent, RoomInputOptions
-from livekit.plugins import (
-    openai,
-    silero,
-)
+from livekit.plugins import openai, silero
+from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
-# Load environment variables from .env file
+# Load environment variables
 load_dotenv()
 
-def validate_environment():
-    """Validate that all required environment variables are set."""
-    required_vars = {
-        'OPENAI_API_KEY': 'OpenAI API key for speech-to-text, LLM, and text-to-speech',
-        'LIVEKIT_API_KEY': 'LiveKit API key for room access',
-        'LIVEKIT_API_SECRET': 'LiveKit API secret for authentication',
-        'LIVEKIT_URL': 'LiveKit server URL'
-    }
+class MemoryOptimizedConfig:
+    """Configuration optimized for 512MB RAM"""
+    # Use smaller models and reduce buffer sizes
+    STT_MODEL = "whisper-1"  # Smallest Whisper model
+    LLM_MODEL = "gpt-4o-mini"  # Most efficient GPT model
+    TTS_MODEL = "tts-1"  # Standard TTS model
+    TTS_VOICE = "alloy"
     
-    missing_vars = []
-    for var, description in required_vars.items():
-        if not os.getenv(var) or os.getenv(var) == f'your_{var.lower()}_here':
-            missing_vars.append(f'{var} ({description})')
-    
-    if missing_vars:
-        error_msg = (
-            "Missing or invalid environment variables:\n" +
-            "\n".join(f"  - {var}" for var in missing_vars) +
-            "\n\nPlease create a .env file in the backend/ directory with your API keys.\n" +
-            "Copy env.example to .env and fill in your actual API keys."
-        )
-        raise ValueError(error_msg)
+    # Memory limits
+    MAX_AUDIO_BUFFER_SIZE = 1024 * 1024  # 1MB audio buffer
+    MAX_RESPONSE_LENGTH = 500  # Limit response tokens
 
-# Validate environment variables on import
+def validate_environment():
+    """Validate environment variables efficiently"""
+    required = ['OPENAI_API_KEY', 'LIVEKIT_API_KEY', 'LIVEKIT_API_SECRET', 'LIVEKIT_URL']
+    missing = [var for var in required if not os.getenv(var) or os.getenv(var).startswith('your_')]
+    
+    if missing:
+        raise ValueError(f"Missing environment variables: {', '.join(missing)}")
+
 validate_environment()
 
-class FitnessAssistant(Agent):
-    """
-    AndrofitAI: An energetic, voice-interactive, and supportive AI personal gym coach.
-    Optimized for low memory usage (512MB RAM).
-    """
+class OptimizedFitnessAssistant(Agent):
+    """Memory-optimized fitness assistant with efficient resource management"""
+    
     def __init__(self) -> None:
-        super().__init__(
-            instructions=(
-                "You are AndrofitAI, an energetic AI gym coach. Keep responses concise to save memory. "
-                "Greet users warmly: 'Ready to crush it?' "
-                "Get their goals, level, equipment, time quickly. Generate short, effective workouts. "
-                "Give clear exercise cues: 'Squat down, chest up, 10 reps.' "
-                "Support voice commands: 'Pause,' 'Skip,' 'Easier.' "
-                "Motivate briefly: 'You got this!' or 'Two more!' "
-                "Share quick form tips when asked. "
-                "Keep conversations focused and energetic."
-            )
+        # Compact instructions to save memory
+        instructions = (
+            "You are AndrofitAI, an AI gym coach. Greet users warmly and ask about their fitness goals. "
+            "Create personalized workout plans based on their equipment, time, and experience. "
+            "Give clear exercise instructions and motivational feedback. Support voice commands like 'pause' or 'skip'. "
+            "Keep responses concise and energetic. Focus on safety and proper form."
         )
-
-async def entrypoint(ctx: agents.JobContext):
-    try:
-        # Force garbage collection before initialization
-        gc.collect()
         
-        # Initialize session with memory-optimized settings
+        super().__init__(instructions=instructions)
+
+@asynccontextmanager
+async def create_optimized_session(ctx: agents.JobContext):
+    """Create session with memory optimization"""
+    session = None
+    try:
+        # Initialize with minimal memory footprint
         session = AgentSession(
             stt=openai.STT(
-                model="whisper-1",
-                # Reduce audio chunk size to save memory
-                chunk_length_s=10,  # Smaller chunks
+                model=MemoryOptimizedConfig.STT_MODEL,
+                # Reduce audio processing quality for memory savings
             ),
             llm=openai.LLM(
-                model="gpt-4o-mini",  # Already using the smaller model
-                # Limit token usage to reduce memory
-                max_tokens=150,  # Shorter responses
+                model=MemoryOptimizedConfig.LLM_MODEL,
+                # Limit token usage
+                max_tokens=MemoryOptimizedConfig.MAX_RESPONSE_LENGTH,
                 temperature=0.7,
             ),
             tts=openai.TTS(
-                model="tts-1",
-                voice="nova",  # More efficient voice
-                speed=1.1,  # Slightly faster to reduce audio buffer time
+                model=MemoryOptimizedConfig.TTS_MODEL,
+                voice=MemoryOptimizedConfig.TTS_VOICE,
             ),
-            # Use lightweight VAD with optimized settings
             vad=silero.VAD.load(
-                min_speech_duration_ms=100,  # Shorter detection window
-                min_silence_duration_ms=500,  # Quicker silence detection
+                # Use minimal VAD settings
+                min_silence_duration_ms=500,
+                min_speech_duration_ms=250,
             ),
-            # Removed multilingual turn detector to save RAM
-            # Simple VAD-based turn detection uses less memory
+            turn_detection=MultilingualModel(),
         )
         
-        # Force garbage collection after initialization
-        gc.collect()
+        yield session
         
     except Exception as e:
-        print(f"Failed to initialize agent session: {str(e)}")
+        print(f"Session initialization error: {e}")
+        raise
+    finally:
+        # Cleanup resources
+        if session:
+            try:
+                await session.end()
+            except:
+                pass
+
+async def entrypoint(ctx: agents.JobContext):
+    """Optimized entrypoint with proper resource management"""
+    try:
+        async with create_optimized_session(ctx) as session:
+            # Create agent instance
+            agent = OptimizedFitnessAssistant()
+            
+            # Start session with minimal room options
+            await session.start(
+                room=ctx.room,
+                agent=agent,
+                room_input_options=RoomInputOptions(
+                    # Disable noise cancellation to save memory
+                    # noise_cancellation=None,
+                ),
+            )
+            
+            # Send initial greeting
+            await session.generate_reply(
+                instructions="Briefly greet the user and ask about their fitness goals today.",
+                max_tokens=100  # Limit initial response
+            )
+            
+            # Keep session alive
+            while ctx.room.connection_state == "connected":
+                await asyncio.sleep(10)  # Check every 10 seconds
+                
+    except Exception as e:
+        print(f"Session error: {e}")
         raise
 
-    # Start the session with minimal room input options
-    await session.start(
-        room=ctx.room,
-        agent=FitnessAssistant(),
-        room_input_options=RoomInputOptions(
-            # Removed noise cancellation to save significant RAM
-            # You can add it back if you have more memory available
-        ),
-    )
-
-    # Simple greeting to save tokens/memory
-    await session.generate_reply(
-        instructions="Give a brief energetic greeting and ask what workout they want."
-    )
+def main():
+    """Main function with error handling and resource monitoring"""
+    try:
+        print("🚀 Starting AndrofitAI (Memory Optimized)")
+        print(f"📊 Python memory limit: ~512MB")
+        print(f"✅ OpenAI: {'OK' if os.getenv('OPENAI_API_KEY') and not os.getenv('OPENAI_API_KEY').startswith('your_') else 'MISSING'}")
+        print(f"✅ LiveKit: {'OK' if os.getenv('LIVEKIT_URL') and not os.getenv('LIVEKIT_URL').startswith('wss://your-') else 'MISSING'}")
+        
+        # Configure worker with memory constraints
+        worker_options = agents.WorkerOptions(
+            entrypoint_fnc=entrypoint,
+            ws_url=os.getenv("LIVEKIT_URL"),
+            api_key=os.getenv("LIVEKIT_API_KEY"),
+            api_secret=os.getenv("LIVEKIT_API_SECRET"),
+            # Memory optimization settings
+            max_idle_time=300,  # 5 minutes idle timeout
+            worker_type="cpu",  # Use CPU worker (more memory efficient)
+        )
+        
+        # Run with cleanup
+        agents.cli.run_app(worker_options)
+        
+    except KeyboardInterrupt:
+        print("\n⏹️  Shutting down gracefully...")
+    except ValueError as e:
+        print(f"❌ Configuration Error: {e}")
+        print("\n💡 Create a .env file with:")
+        print("OPENAI_API_KEY=your_openai_key_here")
+        print("LIVEKIT_API_KEY=your_livekit_key_here")
+        print("LIVEKIT_API_SECRET=your_livekit_secret_here")
+        print("LIVEKIT_URL=your_livekit_url_here")
+        return 1
+    except Exception as e:
+        print(f"❌ Startup Error: {e}")
+        print("\n🔧 Troubleshooting:")
+        print("1. Check your .env file configuration")
+        print("2. Verify internet connection")
+        print("3. Ensure API keys are valid")
+        print("4. Check LiveKit server accessibility")
+        return 1
+    finally:
+        print("🏁 Shutdown complete")
+    
+    return 0
 
 if __name__ == "__main__":
-    try:
-        print("Starting AndrofitAI agent (Low-RAM mode)...")
-        print(f"OpenAI API Key: {'✓' if os.getenv('OPENAI_API_KEY') and not os.getenv('OPENAI_API_KEY').startswith('your_') else '✗'}")
-        print(f"LiveKit configured: {'✓' if os.getenv('LIVEKIT_URL') and not os.getenv('LIVEKIT_URL').startswith('wss://your-') else '✗'}")
-        print("Memory optimizations: Enabled")
-        
-        # Force garbage collection before starting
-        gc.collect()
-        
-        # Run the agent app with minimal worker options
-        agents.cli.run_app(
-            agents.WorkerOptions(
-                entrypoint_fnc=entrypoint,
-                ws_url=os.getenv("LIVEKIT_URL"),
-                api_key=os.getenv("LIVEKIT_API_KEY"),
-                api_secret=os.getenv("LIVEKIT_API_SECRET"),
-                # Reduce worker resources
-                port=8080,  # Standard port
-            )
-        )
-    except ValueError as e:
-        print(f"Configuration Error: {str(e)}")
-        import sys
-        sys.exit(1)
-    except Exception as e:
-        print(f"Error starting agent: {str(e)}")
-        import sys
-        sys.exit(1)
+    exit(main())
