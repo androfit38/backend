@@ -129,15 +129,12 @@ def main():
         print(f"✅ OpenAI: {'OK' if os.getenv('OPENAI_API_KEY') and not os.getenv('OPENAI_API_KEY').startswith('your_') else 'MISSING'}")
         print(f"✅ LiveKit: {'OK' if os.getenv('LIVEKIT_URL') and not os.getenv('LIVEKIT_URL').startswith('wss://your-') else 'MISSING'}")
         
-        # Configure worker with memory constraints
+        # Configure worker options
         worker_options = agents.WorkerOptions(
             entrypoint_fnc=entrypoint,
             ws_url=os.getenv("LIVEKIT_URL"),
             api_key=os.getenv("LIVEKIT_API_KEY"),
             api_secret=os.getenv("LIVEKIT_API_SECRET"),
-            # Memory optimization settings
-            max_idle_time=300,  # 5 minutes idle timeout
-            worker_type="cpu",  # Use CPU worker (more memory efficient)
         )
         
         # Run with cleanup
