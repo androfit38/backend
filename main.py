@@ -68,8 +68,8 @@ async def create_optimized_session(ctx: agents.JobContext):
             ),
             vad=silero.VAD.load(
                 # Use minimal VAD settings
-                min_silence_duration_ms=500,
-                min_speech_duration_ms=250,
+                min_silence_duration=0.5,  # 500ms in seconds
+                min_speech_duration=0.25,  # 250ms in seconds
             ),
             # Use simple turn detection based on VAD only
             # turn_detection=MultilingualModel(),  # Removed - requires model download
