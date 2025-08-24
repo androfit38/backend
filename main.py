@@ -162,7 +162,6 @@ def main():
             ws_url=os.getenv("LIVEKIT_URL"),
             api_key=os.getenv("LIVEKIT_API_KEY"),
             api_secret=os.getenv("LIVEKIT_API_SECRET"),
-            max_retry_count=2,  # Fast failure handling
         )
         
         # Run with cleanup
