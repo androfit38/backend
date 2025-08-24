@@ -17,12 +17,12 @@ class MemoryOptimizedConfig:
     LLM_MODEL = "gpt-4o-mini"  # Same - fast and efficient  
     TTS_MODEL = "gpt-4o-mini-tts"  # CHANGED: Faster than tts-1
     TTS_VOICE = "alloy"
-    
+
     # Memory limits
     MAX_AUDIO_BUFFER_SIZE = 512 * 1024  # 512KB for faster processing
     MAX_RESPONSE_LENGTH = 150  # Limit response tokens to prevent counting
     LLM_TEMPERATURE = 0.3  # Lower for faster responses
-    
+
     # VAD settings optimized for speed
     VAD_MIN_SILENCE_DURATION = 0.3  # Faster turn detection
     VAD_MIN_SPEECH_DURATION = 0.15  # Quicker speech detection
@@ -31,7 +31,7 @@ def validate_environment():
     """Validate environment variables efficiently"""
     required = ['OPENAI_API_KEY', 'LIVEKIT_API_KEY', 'LIVEKIT_API_SECRET', 'LIVEKIT_URL']
     missing = [var for var in required if not os.getenv(var) or os.getenv(var).startswith('your_')]
-    
+
     if missing:
         raise ValueError(f"Missing environment variables: {', '.join(missing)}")
 
@@ -39,15 +39,24 @@ validate_environment()
 
 class OptimizedFitnessAssistant(Agent):
     """Memory-optimized fitness assistant with ultra-fast TTS"""
-    
+
     def __init__(self) -> None:
         # Compact instructions to prevent counting and ensure speed
-        instructions = (
-            "You are AndrofitAI, an AI gym coach. Give SHORT, energetic responses (max 30 words). "
-            "Instead of counting reps, use motivation: 'Great form!', 'Keep pushing!', 'You got this!'. "
-            "Focus on encouragement and form tips. Stay brief and energetic. No counting numbers."
-        )
-        
+        instructions=(
+                "You are AndrofitAI, an energetic, voice-interactive, and supportive AI personal gym coach. "
+                "Start every workout session with a warm, personal greeting like 'How's your vibe today? Ready to crush it?' "
+                "Prompt users to share their fitness goals, experience level, available equipment, and time, then dynamically generate customized workout plans — "
+                "For example, if a user says, 'Beginner, 20 min, no equipment,' offer a suitable plan such as '20-min bodyweight HIIT: 10 squats, 10 push-ups.' "
+                "Guide workouts in real time with step-by-step verbal instructions, providing clear cues for each exercise, set, rep, and rest interval — "
+                "Support voice commands like 'Pause,' 'Skip,' or 'Make it easier' to ensure users feel in control. "
+                "Consistently deliver motivational, context-aware feedback—if a user expresses fatigue, reassure them with, 'You're tough, just two more!' "
+                "Share essential form and technique tips by describing correct posture and alignment, and confidently answer questions like 'How's a deadlift done?' "
+                "Adopt an authentic personal trainer style: build rapport with empathetic, conversational exchanges and respond to user mood or progress. "
+                "During rest intervals, initiate brief, engaging fitness discussions—for example, 'Protein aids recovery; try eggs post-workout.' "
+                "Accurately count reps using user grunts, or offer a motivating cadence to keep users on pace, cheering them through every set. "
+                "Always focus on making each session positive, safe, goal-oriented, and truly personalized."
+            )
+
         super().__init__(instructions=instructions)
 
 @asynccontextmanager
@@ -86,9 +95,9 @@ async def create_optimized_session(ctx: agents.JobContext):
             # Enable preemptive generation for ultra-low latency
             preemptive_generation=True,
         )
-        
+
         yield session
-        
+
     except Exception as e:
         print(f"Session initialization error: {e}")
         raise
@@ -106,7 +115,7 @@ async def entrypoint(ctx: agents.JobContext):
         async with create_optimized_session(ctx) as session:
             # Create agent instance
             agent = OptimizedFitnessAssistant()
-            
+
             # Start session with minimal room options
             await session.start(
                 room=ctx.room,
@@ -115,17 +124,17 @@ async def entrypoint(ctx: agents.JobContext):
                     auto_subscribe=True,
                 ),
             )
-            
+
             # Send fast initial greeting with gpt-4o-mini-tts
             await session.say(
                 "Hey! I'm AndrofitAI. Ready to crush your workout?",
                 allow_interruptions=True
             )
-            
+
             # Ultra-responsive session management
             while ctx.room.connection_state == "connected":
                 await asyncio.sleep(0.05)  # Very fast checking for responsiveness
-                
+
     except Exception as e:
         print(f"Session error: {e}")
         raise
@@ -146,7 +155,7 @@ def main():
         print(f"📊 Memory limit: ~512MB")
         print(f"✅ OpenAI: {'OK' if os.getenv('OPENAI_API_KEY') and not os.getenv('OPENAI_API_KEY').startswith('your_') else 'MISSING'}")
         print(f"✅ LiveKit: {'OK' if os.getenv('LIVEKIT_URL') and not os.getenv('LIVEKIT_URL').startswith('wss://your-') else 'MISSING'}")
-        
+
         # Configure worker options
         worker_options = agents.WorkerOptions(
             entrypoint_fnc=entrypoint,
@@ -154,10 +163,10 @@ def main():
             api_key=os.getenv("LIVEKIT_API_KEY"),
             api_secret=os.getenv("LIVEKIT_API_SECRET"),
         )
-        
+
         # Run with cleanup
         agents.cli.run_app(worker_options)
-        
+
     except KeyboardInterrupt:
         print("\n⏹️  Shutting down gracefully...")
     except ValueError as e:
@@ -178,7 +187,7 @@ def main():
         return 1
     finally:
         print("🏁 Shutdown complete")
-    
+
     return 0
 
 if __name__ == "__main__":
